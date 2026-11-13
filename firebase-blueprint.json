@@ -1,0 +1,169 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile metadata stored privately per user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt", "updatedAt"]
+    },
+    "StudioNote": {
+      "title": "StudioNote",
+      "description": "User workspace note linked to a GitHub repository in WhatsAI Studio.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "content": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 10000
+        },
+        "repoName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "title", "content", "repoName", "createdAt", "updatedAt"]
+    },
+    "SyncedProject": {
+      "title": "SyncedProject",
+      "description": "Synced GitHub repository workspace configuration and status.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "repoFullName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "aiProvider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "needs_review", "archived"]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 5000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "repoFullName", "aiProvider", "status", "notes", "createdAt", "updatedAt"]
+    },
+    "AiRun": {
+      "title": "AiRun",
+      "description": "Autonomous Multi-AI repair execution record.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "repoFullName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "repoFullName", "provider", "summary", "success", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile document keyed by Firebase Auth UID."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/StudioNote" },
+      "description": "User-owned workspace notes scoped to specific repositories."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/SyncedProject" },
+      "description": "User-owned synced GitHub repository settings and status."
+    },
+    "/users/{userId}/aiRuns/{runId}": {
+      "schema": { "$ref": "#/entities/AiRun" },
+      "description": "User-owned autonomous AI build and heal execution log."
+    }
+  }
+}

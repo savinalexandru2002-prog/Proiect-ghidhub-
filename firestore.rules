@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.size() >= 3 && email.size() <= 254 && email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && isValidId(data.uid)
+        && isValidEmail(data.email)
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStudioNote(data, userId) {
+      return data.keys().hasAll(['ownerId', 'title', 'content', 'repoName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'title', 'content', 'repoName', 'createdAt', 'updatedAt'])
+        && data.ownerId is string
+        && data.ownerId == userId
+        && isValidId(data.ownerId)
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.content is string
+        && data.content.size() <= 10000
+        && data.repoName is string
+        && data.repoName.size() >= 1
+        && data.repoName.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSyncedProject(data, userId) {
+      return data.keys().hasAll(['ownerId', 'repoFullName', 'aiProvider', 'status', 'notes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'repoFullName', 'aiProvider', 'status', 'notes', 'createdAt', 'updatedAt'])
+        && data.ownerId is string
+        && data.ownerId == userId
+        && isValidId(data.ownerId)
+        && data.repoFullName is string
+        && data.repoFullName.size() >= 1
+        && data.repoFullName.size() <= 200
+        && data.aiProvider is string
+        && data.aiProvider.size() >= 1
+        && data.aiProvider.size() <= 40
+        && data.status is string
+        && data.status in ['active', 'needs_review', 'archived']
+        && data.notes is string
+        && data.notes.size() <= 5000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAiRun(data, userId) {
+      return data.keys().hasAll(['ownerId', 'repoFullName', 'provider', 'summary', 'success', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'repoFullName', 'provider', 'summary', 'success', 'createdAt'])
+        && data.ownerId is string
+        && data.ownerId == userId
+        && isValidId(data.ownerId)
+        && data.repoFullName is string
+        && data.repoFullName.size() >= 1
+        && data.repoFullName.size() <= 200
+        && data.provider is string
+        && data.provider.size() >= 1
+        && data.provider.size() <= 80
+        && data.summary is string
+        && data.summary.size() <= 2000
+        && data.success is bool
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']);
+      allow delete: if isValidId(userId) && isOwner(userId);
+
+      match /notes/{noteId} {
+        allow get: if isValidId(userId)
+          && isValidId(noteId)
+          && isOwner(userId)
+          && (resource == null || existing().ownerId == request.auth.uid);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(noteId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidStudioNote(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(noteId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid
+          && isValidStudioNote(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'repoName', 'updatedAt']);
+        allow delete: if isValidId(userId)
+          && isValidId(noteId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+      }
+
+      match /projects/{projectId} {
+        allow get: if isValidId(userId)
+          && isValidId(projectId)
+          && isOwner(userId)
+          && (resource == null || existing().ownerId == request.auth.uid);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(projectId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidSyncedProject(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(projectId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid
+          && isValidSyncedProject(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().repoFullName == existing().repoFullName
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['aiProvider', 'status', 'notes', 'updatedAt']);
+        allow delete: if isValidId(userId)
+          && isValidId(projectId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+      }
+
+      match /aiRuns/{runId} {
+        allow get: if isValidId(userId)
+          && isValidId(runId)
+          && isOwner(userId)
+          && (resource == null || existing().ownerId == request.auth.uid);
+        allow list: if isValidId(userId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(runId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidAiRun(incoming(), userId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(userId)
+          && isValidId(runId)
+          && isOwner(userId)
+          && existing().ownerId == request.auth.uid;
+      }
+    }
+  }
+}

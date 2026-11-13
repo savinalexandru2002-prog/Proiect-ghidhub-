@@ -1,0 +1,6 @@
+{
+  "name": "WhatsAI Studio - GitHub Manager & WhatsApp Simulator",
+  "description": "WhatsApp-style AI assistant dashboard (WhatsAI Studio) with intelligent GitHub repository management, sorting, and automated cleanup of empty projects.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
